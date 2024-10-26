@@ -1,4 +1,4 @@
-import { PrismaClient, Section } from "@prisma/client";
+import { Post, PrismaClient, Section } from "@prisma/client";
 import Elysia, { error, t } from "elysia";
 
 const Prisma = new PrismaClient();
@@ -88,4 +88,90 @@ export const postPage = new Elysia()
         }
     })
     
+    // ! delete post
+    .delete('/remove/:id',async({
+        params : {id} ,
+        headers : {authorization} ,
+        error
+    })=>{
+
+        const checkToken : Section[] = await Prisma.section.findMany({
+            where : {
+                token : authorization
+            },
+        })
+        const checkPost : Post[] = await Prisma.post.findMany({
+            where : {
+                id 
+            },
+        })
+        
+        if (checkToken[0] && checkPost[0]) {
+            const deletePost = await Prisma.post.delete({
+                where : {
+                    id
+                }
+            })
+
+            return {message : 'پست با موفقیت حذف شد .' , deletePost}
+        }
+        else if (!checkPost[0]){
+            return error(401 , '! پستی با این شماره پیدا نشد ')
+        }
+        else{
+            return error(401 , '! توکن شما معتبر نمی باشد ')
+        }
+
+    },{
+        params : t.Object({
+            id : t.Number()
+        })
+    })
+
+    // ! Update post
+    .put('/update/:id', async({
+        params : {id} ,
+        body : {title , content} ,
+        headers : {authorization} ,
+        error
+    })=>{
+        const checkToken : Section[] = await Prisma.section.findMany({
+            where : {
+                token : authorization
+            },
+        })
+        const checkPost : Post[] = await Prisma.post.findMany({
+            where : {
+                id 
+            },
+        })
+
+        if (checkToken[0] && checkPost[0]) {
+            const updatePost = await Prisma.post.update({
+                where : {
+                    id
+                },
+                data : {
+                    title ,
+                    content ,
+                }
+            })
+
+            return {message : 'پست با موفقیت آپدیت شد .' , updatePost}
+        }
+        else if (!checkPost[0]){
+            return error(401 , '! پستی با این شماره پیدا نشد ')
+        }
+        else{
+            return error(401 , '! توکن شما معتبر نمی باشد ')
+        }
+    },{
+        body : t.Object({
+            title : t.String(),
+            content : t.String(),
+        }),
+        params : t.Object({
+            id : t.Number()
+        })
+    })
 })
