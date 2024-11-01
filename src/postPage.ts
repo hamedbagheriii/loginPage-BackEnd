@@ -18,7 +18,7 @@ export const postPage = new Elysia().group("/posts", (app) => {
       .post(
         "/add",
         async ({
-          body: { title, content, userId },
+          body: { title, content },
           headers: { authorization },
           error: error,
         }) => {
@@ -28,12 +28,13 @@ export const postPage = new Elysia().group("/posts", (app) => {
             },
           });
 
-          if (checkToken[0].userId == userId) {
+          const userID = checkToken[0].userId;
+          if (userID) {
             await Prisma.post.create({
               data: {
                 title,
-                content,
-                userID: userId,
+                content : content || "",
+                userID
               },
             });
 
@@ -45,8 +46,7 @@ export const postPage = new Elysia().group("/posts", (app) => {
         {
           body: t.Object({
             title: t.String(),
-            content: t.String(),
-            userId: t.Number(),
+            content: t.Optional(t.String()),
           }),
         }
       )
@@ -214,7 +214,7 @@ export const postPage = new Elysia().group("/posts", (app) => {
         }
       )
 
-      // ! Update post
+      // ! like post
       .put(
         "/likePost/:id",
         async ({ params: { id }, headers: { authorization }, error }) => {
@@ -258,5 +258,47 @@ export const postPage = new Elysia().group("/posts", (app) => {
           }),
         }
       )
+
+      // ------- all posts
+      // ! get posts
+      .get("/allPosts", 
+        async ({ headers: { authorization }, error }) => {
+        const checkToken: Section[] = await Prisma.section.findMany({
+          where: {
+            token: authorization,
+          },
+        });
+
+        if (checkToken[0]) {
+          const { userId } = checkToken[0];
+
+          if (userId) {
+            const posts = await Prisma.post.findMany({
+              where: {
+                userID: {
+                  not : userId
+                }
+              },
+              include: {
+                userData: {
+                  select: {
+                    fristName: true,
+                    lastName: true,
+                    email: true,
+                    id: true,
+                  },
+                },
+              },
+            });
+            return {
+              message: "پست ها با موفقیت دریافت شدند .",
+              posts,
+              success: true,
+            };
+          }
+        } else {
+          return error(401, "! توکن شما معتبر نمی باشد ");
+        }
+      })
   );
 });
