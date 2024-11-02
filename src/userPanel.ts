@@ -76,9 +76,9 @@ export const userPanel = new Elysia().group("/auth", (app) => {
               })
               .then(async () => {
                 // ! ایجاد توکن برای کاربر
-                const key = crypto.randomUUID()
+                const key = crypto.randomUUID();
                 const token = key;
-                
+
                 await Prisma.section.create({
                   data: {
                     token,
@@ -112,9 +112,9 @@ export const userPanel = new Elysia().group("/auth", (app) => {
             },
             include: {
               userData: {
-                include : {
-                  posts : true
-                }
+                include: {
+                  posts: true,
+                },
               },
             },
           });
@@ -159,7 +159,59 @@ export const userPanel = new Elysia().group("/auth", (app) => {
       .put(
         "update",
         async ({
-          body: { email, u_password, o_password, fristName, lastName },
+          body: { email, fristName, lastName },
+          headers: { authorization },
+          set,
+        }) => {
+          const checkToken = await Prisma.section.findMany({
+            where: {
+              token: authorization,
+            },
+            include: {
+              userData: true,
+            },
+          });
+
+
+          if (!checkToken.length) {
+            set.status = 401;
+            return { message: "توکن اشتباه است !", success: false };
+          } else {
+            const user = await Prisma.user.update({
+              where: {
+                id: checkToken[0].userId,
+              },
+              data: {
+                email,
+                lastName,
+                fristName,
+              },
+            });
+
+            return {
+              message: "کاربر با موفقیت ویرایش شد !",
+              data: { ...user, password: null },
+              success: true,
+            };
+          }
+        },
+        {
+          body: t.Object({
+            email: t.String(),
+            fristName: t.String(),
+            lastName: t.String(),
+          }),
+          headers: t.Object({
+            authorization: t.String(),
+          }),
+        }
+      )
+
+      // ! ویرایش رمز عبور کاربر
+      .put(
+        "update/password",
+        async ({
+          body: { u_password, o_password },
           headers: { authorization },
           set,
         }) => {
@@ -177,7 +229,7 @@ export const userPanel = new Elysia().group("/auth", (app) => {
             o_password,
             checkToken[0].userData.password
           );
-          
+
           if (!checkToken.length || !checkPassword) {
             set.status = 401;
             return { message: "توکن یا رمز عبور اشتباه است !", success: false };
@@ -187,15 +239,12 @@ export const userPanel = new Elysia().group("/auth", (app) => {
                 id: checkToken[0].userId,
               },
               data: {
-                email,
-                lastName,
-                fristName,
                 password: await Bun.password.hash(u_password),
               },
             });
 
             return {
-              message: "کاربر با موفقیت ویرایش شد !",
+              message: "رمز عبور کاربر با موفقیت ویرایش شد !",
               data: { ...user, password: null },
               success: true,
             };
@@ -203,11 +252,8 @@ export const userPanel = new Elysia().group("/auth", (app) => {
         },
         {
           body: t.Object({
-            email: t.String(),
             u_password: t.String(),
             o_password: t.String(),
-            fristName: t.String(),
-            lastName: t.String(),
           }),
           headers: t.Object({
             authorization: t.String(),
